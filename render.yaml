@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: scannercafe-server
+    runtime: node
+    rootDir: .
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: MONGO_URI
+        sync: false
