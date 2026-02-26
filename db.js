@@ -62,16 +62,20 @@ const Product   = mongoose.model('Product', ProductSchema)
 const Sale      = mongoose.model('Sale', SaleSchema)
 const Settings  = mongoose.model('Settings', SettingsSchema)
 
-mongoose.connect(MONGO_URI, { autoIndex: true })
+mongoose.connect(MONGO_URI, { autoIndex: false })
   .then(async () => {
     console.log('MongoDB connected')
-    await Promise.all([
-      Workspace.syncIndexes(),
-      Product.syncIndexes(),
-      Sale.syncIndexes(),
-      Settings.syncIndexes(),
-    ])
-    console.log('Indexes synced')
+    try {
+      await Promise.all([
+        Workspace.syncIndexes(),
+        Product.syncIndexes(),
+        Sale.syncIndexes(),
+        Settings.syncIndexes(),
+      ])
+      console.log('Indexes synced')
+    } catch (e) {
+      console.warn('Index sync warning (may have duplicate data):', e.message)
+    }
   })
   .catch((err) => { console.error('MongoDB connection error:', err); process.exit(1) })
 
