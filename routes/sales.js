@@ -87,6 +87,14 @@ router.post('/bulk', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// DELETE /api/sales/all — elimina todas las ventas del workspace
+router.delete('/all', async (req, res) => {
+  try {
+    const result = await Sale.deleteMany({ workspace: req.workspace.syncKey })
+    res.json({ ok: true, deleted: result.deletedCount })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 // DELETE /api/sales/:id
 router.delete('/:id', async (req, res) => {
   try {
