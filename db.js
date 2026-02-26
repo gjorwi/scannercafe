@@ -6,10 +6,6 @@ if (!MONGO_URI) {
   process.exit(1)
 }
 
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch((err) => { console.error('MongoDB connection error:', err); process.exit(1) })
-
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const WorkspaceSchema = new mongoose.Schema({
@@ -65,5 +61,18 @@ const Workspace = mongoose.model('Workspace', WorkspaceSchema)
 const Product   = mongoose.model('Product', ProductSchema)
 const Sale      = mongoose.model('Sale', SaleSchema)
 const Settings  = mongoose.model('Settings', SettingsSchema)
+
+mongoose.connect(MONGO_URI, { autoIndex: true })
+  .then(async () => {
+    console.log('MongoDB connected')
+    await Promise.all([
+      Workspace.syncIndexes(),
+      Product.syncIndexes(),
+      Sale.syncIndexes(),
+      Settings.syncIndexes(),
+    ])
+    console.log('Indexes synced')
+  })
+  .catch((err) => { console.error('MongoDB connection error:', err); process.exit(1) })
 
 module.exports = { Workspace, Product, Sale, Settings }

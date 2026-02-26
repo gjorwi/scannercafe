@@ -51,7 +51,7 @@ router.post('/', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-// POST /api/sales/bulk — insert many, skip duplicates by id
+// POST /api/sales/bulk — upsert many, skip if id already exists
 router.post('/bulk', async (req, res) => {
   const { sales } = req.body
   if (!Array.isArray(sales)) return res.status(400).json({ error: 'sales array required' })
@@ -62,21 +62,25 @@ router.post('/bulk', async (req, res) => {
     for (const s of sales) {
       if (!s.id) { results.errors.push({ id: s.id, error: 'missing id' }); continue }
       try {
-        await Sale.create({
-          id: s.id, workspace,
-          items: (s.items || []).map((i) => ({
-            productId: i.productId || null, name: i.name, qty: i.qty,
-            priceUSD: parseFloat(i.priceUSD) || 0, subtotalUSD: parseFloat(i.subtotalUSD) || 0,
-          })),
-          totalUSD: parseFloat(s.totalUSD) || 0,
-          totalVEF: parseFloat(s.totalVEF) || 0,
-          exchangeRate: parseFloat(s.exchangeRate) || null,
-          createdAt: s.createdAt || now,
-        })
-        results.inserted++
+        const res2 = await Sale.updateOne(
+          { id: s.id, workspace },
+          { $setOnInsert: {
+            id: s.id, workspace,
+            items: (s.items || []).map((i) => ({
+              productId: i.productId || null, name: i.name, qty: i.qty,
+              priceUSD: parseFloat(i.priceUSD) || 0, subtotalUSD: parseFloat(i.subtotalUSD) || 0,
+            })),
+            totalUSD: parseFloat(s.totalUSD) || 0,
+            totalVEF: parseFloat(s.totalVEF) || 0,
+            exchangeRate: parseFloat(s.exchangeRate) || null,
+            createdAt: s.createdAt || now,
+          }},
+          { upsert: true }
+        )
+        if (res2.upsertedCount > 0) results.inserted++
+        else results.skipped++
       } catch (e) {
-        if (e.code === 11000) results.skipped++
-        else results.errors.push({ id: s.id, error: e.message })
+        results.errors.push({ id: s.id, error: e.message })
       }
     }
     res.json({ ok: true, ...results })

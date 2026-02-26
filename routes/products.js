@@ -77,7 +77,7 @@ router.delete('/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-// POST /api/products/bulk — insert many, skip duplicates by id
+// POST /api/products/bulk — upsert many, skip if id already exists
 router.post('/bulk', async (req, res) => {
   const { products } = req.body
   if (!Array.isArray(products)) return res.status(400).json({ error: 'products array required' })
@@ -88,14 +88,18 @@ router.post('/bulk', async (req, res) => {
     for (const p of products) {
       if (!p.id || !p.name) { results.errors.push({ id: p.id, error: 'missing id or name' }); continue }
       try {
-        await Product.create({ id: p.id, workspace, barcode: p.barcode || null, name: p.name,
-          category: p.category || null, priceUSD: parseFloat(p.priceUSD) || 0,
-          stock: parseInt(p.stock) || 0, image: p.image || null,
-          createdAt: p.createdAt || now, updatedAt: p.updatedAt || now })
-        results.inserted++
+        const res2 = await Product.updateOne(
+          { id: p.id, workspace },
+          { $setOnInsert: { id: p.id, workspace, barcode: p.barcode || null, name: p.name,
+            category: p.category || null, priceUSD: parseFloat(p.priceUSD) || 0,
+            stock: parseInt(p.stock) || 0, image: p.image || null,
+            createdAt: p.createdAt || now, updatedAt: p.updatedAt || now } },
+          { upsert: true }
+        )
+        if (res2.upsertedCount > 0) results.inserted++
+        else results.skipped++
       } catch (e) {
-        if (e.code === 11000) results.skipped++ // duplicate key
-        else results.errors.push({ id: p.id, error: e.message })
+        results.errors.push({ id: p.id, error: e.message })
       }
     }
     res.json({ ok: true, ...results })
